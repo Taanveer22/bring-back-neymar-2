@@ -18,7 +18,15 @@ const port = process.env.PORT || 5000;
 // ======================================
 
 // Allow frontend requests
-app.use(cors());
+app.use(
+  cors({
+    origin: 'https://bring-back-neymar.vercel.app',
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    credentials: true,
+  })
+);
+
+app.options('*', cors());
 // Read JSON data from frontend
 app.use(express.json());
 
