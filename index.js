@@ -1,13 +1,9 @@
 // ======================================
 // REQUIRE PACKAGES
 // ======================================
-
 require('dotenv').config();
-
 const express = require('express');
-
 const cors = require('cors');
-
 const { MongoClient, ServerApiVersion } = require('mongodb');
 
 // ======================================
@@ -15,7 +11,6 @@ const { MongoClient, ServerApiVersion } = require('mongodb');
 // ======================================
 
 const app = express();
-
 const port = process.env.PORT || 5000;
 
 // ======================================
@@ -24,7 +19,6 @@ const port = process.env.PORT || 5000;
 
 // Allow frontend requests
 app.use(cors());
-
 // Read JSON data from frontend
 app.use(express.json());
 
@@ -39,9 +33,7 @@ const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@clu
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
-
     strict: true,
-
     deprecationErrors: true,
   },
 });
@@ -53,12 +45,12 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect MongoDB
-    await client.connect();
+    // await client.connect();
 
     // Ping MongoDB
-    await client.db('admin').command({
-      ping: 1,
-    });
+    // await client.db('admin').command({
+    //   ping: 1,
+    // });
 
     console.log('MongoDB Connected Successfully');
 
@@ -206,6 +198,8 @@ run().catch(console.dir);
 // START SERVER
 // ======================================
 
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-});
+// app.listen(port, () => {
+//   console.log(`Server running on port ${port}`);
+// });
+
+module.exports = app;
