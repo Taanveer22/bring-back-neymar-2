@@ -8,7 +8,7 @@ const app = express();
 // CORS কনফিগারেশন
 app.use(
   cors({
-    origin: ['https://bring-back-neymar-2.vercel.app'],
+    origin: ['https://bring-back-neymar.vercel.app'],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
