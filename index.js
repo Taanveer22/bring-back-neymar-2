@@ -1,11 +1,13 @@
 require('dotenv').config();
 const express = require('express');
+const nodemailer = require('nodemailer');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion } = require('mongodb');
 
 const app = express();
 
-// CORS কনফিগারেশন
+// middleware setup
+app.use(express.json());
 app.use(
   cors({
     origin: ['https://bring-back-neymar.vercel.app'],
@@ -15,8 +17,15 @@ app.use(
   })
 );
 
-app.use(express.json());
-
+// nodemailer setup
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
+// mongodb setup
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.89rnkti.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 const client = new MongoClient(uri, {
@@ -27,10 +36,10 @@ const client = new MongoClient(uri, {
   },
 });
 
-// ডাটাবেজ কালেকশন রেফারেন্স গ্লোবাল রাখা হলো
+// database collection reference(global)
 let petitionsCollection;
 
-// ডাটাবেজ কানেকশন ফাংশন (Middleware হিসেবে কাজ করবে)
+// database connection  function(work as middleware)
 async function connectDB() {
   if (!petitionsCollection) {
     await client.connect();
@@ -41,15 +50,15 @@ async function connectDB() {
   return petitionsCollection;
 }
 
-// ১. রুট চেক করার জন্য
+// 1. check the route
 app.get('/', (req, res) => {
   res.send('Server Running');
 });
 
-// ২. পিটিশন কাউন্ট রুট
+// 2. read petition count root
 app.get('/api/petitions/count', async (req, res) => {
   try {
-    const collection = await connectDB(); // কানেকশন নিশ্চিত করা
+    const collection = await connectDB();
     const totalPetitions = await collection.countDocuments();
     res.send({ success: true, totalPetitions });
   } catch (error) {
@@ -58,7 +67,7 @@ app.get('/api/petitions/count', async (req, res) => {
   }
 });
 
-// ৩. নতুন পিটিশন সাবমিট রুট
+// 3. create petition route
 app.post('/api/petitions', async (req, res) => {
   try {
     const { name, email } = req.body;
@@ -70,7 +79,7 @@ app.post('/api/petitions', async (req, res) => {
       });
     }
 
-    const collection = await connectDB(); // কানেকশন নিশ্চিত করা
+    const collection = await connectDB();
     const existingUser = await collection.findOne({ email });
 
     if (existingUser) {
@@ -101,5 +110,65 @@ app.post('/api/petitions', async (req, res) => {
   }
 });
 
-// Vercel এর জন্য এক্সপোর্ট
+// 4. create contact route
+app.post('/api/contact', async (req, res) => {
+  try {
+    // get data from frontend
+    const { name, email, message } = req.body;
+
+    // check empty fields
+    if (!name || !email || !message) {
+      return res.status(400).send({
+        success: false,
+        message: 'Please fill all input fields',
+      });
+    }
+
+    // email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(email)) {
+      return res.status(400).send({
+        success: false,
+        message: 'Invalid email address',
+      });
+    }
+
+    // sanitize inputs
+    const safeName = name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    const safeMessage = message.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    // create email data
+    const emailOptions = {
+      from: process.env.EMAIL_USER,
+      to: process.env.EMAIL_USER,
+      replyTo: email,
+      subject: 'New contact message',
+      html: `
+        <h2>New Message</h2>
+        <p><strong>Name:</strong> ${safeName}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Message:</strong> ${safeMessage}</p>
+      `,
+    };
+
+    // send email
+    await transporter.sendMail(emailOptions);
+
+    res.send({
+      success: true,
+      message: 'Email sent successfully',
+    });
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).send({
+      success: false,
+      message: 'Email failed to send',
+    });
+  }
+});
+
+// Vercel export
 module.exports = app;
