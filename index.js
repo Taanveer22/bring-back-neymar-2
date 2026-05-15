@@ -112,57 +112,85 @@ app.post('/api/petitions', async (req, res) => {
 
 // 4. create contact route
 app.post('/api/contact', async (req, res) => {
+  // Step 1: Get the data from the form
+  const name = req.body.name;
+  const email = req.body.email;
+  const message = req.body.message;
+
+  // Step 2: Check if any field is empty
+  if (!name || !email || !message) {
+    res.status(400).send({
+      success: false,
+      message: 'Please fill all input fields',
+    });
+    return;
+  }
+
+  // Step 3: Check if the email is valid
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const isEmailValid = emailRegex.test(email);
+
+  if (!isEmailValid) {
+    res.status(400).send({
+      success: false,
+      message: 'Invalid email address',
+    });
+    return;
+  }
+
+  // Step 4: Clean the inputs (remove dangerous characters)
+  const safeName = name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const safeMessage = message.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // Step 5: Build the email that goes to YOU (the site owner)
+  const emailToOwner = {
+    from: process.env.EMAIL_USER,
+    to: process.env.EMAIL_USER,
+    replyTo: email,
+    subject: 'New contact message',
+    html: `
+      <h2>New Message</h2>
+      <p><strong>Name:</strong> ${safeName}</p>
+      <p><strong>Email:</strong> ${email}</p>
+      <p><strong>Message:</strong> ${safeMessage}</p>
+    `,
+  };
+
+  // Step 6: Build the auto-reply email that goes to the USER
+  const emailToUser = {
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: 'Thanks for reaching out! 👋',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 24px; border: 1px solid #eee; border-radius: 8px;">
+        <h2 style="color: #333;">Hey ${safeName}, thanks for your message!</h2>
+        <p style="color: #555; font-size: 15px;">
+          I have received your message and will get back to you as soon as possible — usually within 24 hours.
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee;" />
+        <p style="color: #999; font-size: 13px;">
+          This is an automated reply. Please do not reply to this email.
+        </p>
+      </div>
+    `,
+  };
+
+  // Step 7: Try to send both emails
   try {
-    // get data from frontend
-    const { name, email, message } = req.body;
+    // Send email to owner
+    await transporter.sendMail(emailToOwner);
 
-    // check empty fields
-    if (!name || !email || !message) {
-      return res.status(400).send({
-        success: false,
-        message: 'Please fill all input fields',
-      });
-    }
+    // Send auto-reply to user
+    await transporter.sendMail(emailToUser);
 
-    // email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!emailRegex.test(email)) {
-      return res.status(400).send({
-        success: false,
-        message: 'Invalid email address',
-      });
-    }
-
-    // sanitize inputs
-    const safeName = name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-    const safeMessage = message.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-    // create email data
-    const emailOptions = {
-      from: process.env.EMAIL_USER,
-      to: process.env.EMAIL_USER,
-      replyTo: email,
-      subject: 'New contact message',
-      html: `
-        <h2>New Message</h2>
-        <p><strong>Name:</strong> ${safeName}</p>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Message:</strong> ${safeMessage}</p>
-      `,
-    };
-
-    // send email
-    await transporter.sendMail(emailOptions);
-
+    // Step 8: Tell the frontend everything worked
     res.send({
       success: true,
       message: 'Email sent successfully',
     });
   } catch (error) {
-    console.log(error);
-
+    // Step 9: If something went wrong, tell the frontend
+    console.log('Email error:', error);
     res.status(500).send({
       success: false,
       message: 'Email failed to send',
