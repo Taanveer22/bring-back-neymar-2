@@ -72,6 +72,7 @@ app.post('/api/petitions', async (req, res) => {
   try {
     const { name, email } = req.body;
 
+    // Step 1: Check empty fields
     if (!name || !email) {
       return res.status(400).send({
         success: false,
@@ -79,6 +80,7 @@ app.post('/api/petitions', async (req, res) => {
       });
     }
 
+    // Step 2: Connect and check duplicate
     const collection = await connectDB();
     const existingUser = await collection.findOne({ email });
 
@@ -89,6 +91,7 @@ app.post('/api/petitions', async (req, res) => {
       });
     }
 
+    // Step 3: Save to database just name, email and creation time
     const newPetition = {
       name,
       email,
@@ -98,6 +101,43 @@ app.post('/api/petitions', async (req, res) => {
     const result = await collection.insertOne(newPetition);
     const totalPetitions = await collection.countDocuments();
 
+    // Step 4: Build auto-reply email to the signer
+    const autoReplyToPetitioner = {
+      from: `"Bring Back Neymar" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: '✅ You just signed the petition!',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 24px; border: 1px solid #eee; border-radius: 8px;">
+          
+          <h2 style="color: #1e3a5f;">Hey ${name}, thank you for signing! 🙌</h2>
+          
+          <p style="color: #555; font-size: 15px;">
+            Your signature has been recorded. You are now part of the movement to bring Neymar back!
+          </p>
+
+          <div style="background: #f9f9f9; border-left: 4px solid #f5c518; padding: 12px 16px; margin: 20px 0; border-radius: 4px;">
+            <p style="margin: 0; color: #333; font-size: 14px;">
+              📋 <strong>Total Signatures So Far:</strong> ${totalPetitions}
+            </p>
+          </div>
+
+          <p style="color: #555; font-size: 15px;">
+            Share this campaign with your friends and help us grow the movement!
+          </p>
+
+          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+
+          <p style="color: #999; font-size: 12px;">
+            This is an automated confirmation email. Please do not reply to this email.
+          </p>
+        </div>
+      `,
+    };
+
+    // Step 5: Send the auto-reply email
+    await transporter.sendMail(autoReplyToPetitioner);
+
+    // Step 6: Send success response to frontend
     res.status(201).send({
       success: true,
       message: 'Petition signed successfully',
